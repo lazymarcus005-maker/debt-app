@@ -1,0 +1,1102 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Finance Manager</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f8f9fa;
+            color: #2d3748;
+            padding-bottom: 75px;
+        }
+
+        .container {
+            width: 100%;
+            margin: 0 auto;
+        }
+
+        /* Header */
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 16px;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        header h1 {
+            font-size: 18px;
+            font-weight: 700;
+        }
+
+        header .icons {
+            display: flex;
+            gap: 12px;
+            font-size: 18px;
+            cursor: pointer;
+        }
+
+        /* Tab Navigation */
+        .tab-nav {
+            display: none;
+        }
+
+        .tab-btn {
+            display: none;
+        }
+
+        /* More Section */
+        .profile-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 16px;
+            text-align: center;
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+
+        .profile-avatar {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            margin: 0 auto 8px;
+        }
+
+        .profile-name {
+            font-size: 14px;
+            font-weight: 700;
+            margin-bottom: 2px;
+        }
+
+        .profile-email {
+            font-size: 11px;
+            opacity: 0.9;
+        }
+
+        .menu-section {
+            margin-bottom: 16px;
+        }
+
+        .menu-title {
+            font-size: 9px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: #a0aec0;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+            padding: 0 16px;
+        }
+
+        .menu-item {
+            background: white;
+            padding: 12px 16px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .menu-item:hover {
+            background: #f7fafc;
+        }
+
+        .menu-item:last-child {
+            border-bottom: none;
+        }
+
+        .menu-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #2d3748;
+        }
+
+        .menu-icon {
+            font-size: 14px;
+        }
+
+        /* Main Content */
+        section {
+            display: none;
+            padding: 12px 16px;
+        }
+
+        section.active {
+            display: block;
+        }
+
+        section h2 {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: #718096;
+            letter-spacing: 0.5px;
+            margin: 12px 0 8px 0;
+        }
+
+        /* Alert Box */
+        .alert-box {
+            background: #fff5f5;
+            border: 1px solid #feb2b2;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 12px;
+            font-size: 11px;
+            color: #742a2a;
+        }
+
+        .alert-title {
+            font-weight: 700;
+            margin-bottom: 4px;
+            color: #c53030;
+        }
+
+        /* Summary Cards */
+        .summary-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .sum-card {
+            background: white;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .sum-label {
+            font-size: 9px;
+            color: #a0aec0;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+
+        .sum-value {
+            font-size: 18px;
+            font-weight: 700;
+            color: #2d3748;
+        }
+
+        .sum-meta {
+            font-size: 9px;
+            color: #a0aec0;
+            margin-top: 2px;
+        }
+
+        /* Saving Goal Card */
+        .goal-card {
+            background: white;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 10px;
+            border-left: 3px solid #667eea;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .goal-card:active {
+            transform: scale(0.98);
+        }
+
+        .goal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 8px;
+        }
+
+        .goal-name {
+            font-size: 12px;
+            font-weight: 700;
+            color: #2d3748;
+        }
+
+        .goal-date {
+            font-size: 9px;
+            color: #a0aec0;
+            background: #f7fafc;
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+
+        .goal-amount {
+            font-size: 13px;
+            font-weight: 700;
+            color: #667eea;
+            margin-bottom: 4px;
+        }
+
+        .progress-bar {
+            background: #e2e8f0;
+            height: 4px;
+            border-radius: 2px;
+            overflow: hidden;
+            margin-bottom: 4px;
+        }
+
+        .progress-fill {
+            background: linear-gradient(90deg, #48bb78, #38a169);
+            height: 100%;
+            transition: width 0.3s ease;
+        }
+
+        .progress-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 9px;
+            color: #a0aec0;
+        }
+
+        /* Bill Item */
+        .bill-item {
+            background: white;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 10px;
+            border-left: 3px solid #667eea;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            cursor: pointer;
+        }
+
+        .bill-item.overdue {
+            border-left-color: #f56565;
+            background: #fff5f5;
+        }
+
+        .bill-item.paid {
+            border-left-color: #48bb78;
+            background: #f0fdf4;
+            opacity: 0.8;
+        }
+
+        .bill-left {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .bill-name {
+            font-size: 12px;
+            font-weight: 700;
+            color: #2d3748;
+            margin-bottom: 2px;
+        }
+
+        .bill-meta {
+            font-size: 9px;
+            color: #a0aec0;
+            display: flex;
+            gap: 4px;
+            margin-bottom: 4px;
+        }
+
+        .bill-amount {
+            font-size: 12px;
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        .bill-amount-large {
+            font-size: 13px;
+            font-weight: 700;
+            color: #2d3748;
+            margin-bottom: 4px;
+        }
+
+        .bill-progress {
+            margin-top: 6px;
+        }
+
+        .bill-progress .progress-label {
+            margin-top: 2px;
+        }
+
+        .bill-progress .progress-label span {
+            font-size: 8px;
+            color: #a0aec0;
+        }
+
+        .bill-status-right {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            flex-shrink: 0;
+            margin-left: 8px;
+        }
+
+        .status-badge {
+            font-size: 8px;
+            font-weight: 700;
+            padding: 3px 6px;
+            border-radius: 3px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .status-badge.pending {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .status-badge.paid {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .status-badge.overdue {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        /* Add Button */
+        .fab {
+            position: fixed;
+            bottom: 80px;
+            right: 16px;
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            font-size: 24px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+            z-index: 6;
+        }
+
+        .fab:active {
+            transform: scale(0.95);
+        }
+
+        /* Bottom Navigation */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            border-top: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            height: 65px;
+            z-index: 5;
+            box-shadow: 0 -2px 8px rgba(0,0,0,0.05);
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+            cursor: pointer;
+            padding: 4px 8px;
+            font-size: 9px;
+            font-weight: 600;
+            color: #a0aec0;
+            transition: color 0.2s;
+            flex: 1;
+        }
+
+        .nav-item.active {
+            color: #667eea;
+        }
+
+        .nav-icon {
+            font-size: 18px;
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 20;
+            animation: fadeIn 0.2s;
+        }
+
+        .modal.active {
+            display: flex;
+            align-items: flex-end;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .modal-content {
+            background: white;
+            width: 100%;
+            padding: 16px;
+            border-radius: 12px 12px 0 0;
+            max-height: 80vh;
+            overflow-y: auto;
+            animation: slideUp 0.3s;
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(100%);
+            }
+            to {
+                transform: translateY(0);
+            }
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .modal-header h2 {
+            font-size: 16px;
+            font-weight: 700;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #a0aec0;
+        }
+
+        /* Form */
+        .form-group {
+            margin-bottom: 12px;
+        }
+
+        label {
+            display: block;
+            font-size: 11px;
+            font-weight: 600;
+            color: #718096;
+            margin-bottom: 4px;
+            text-transform: uppercase;
+        }
+
+        input, textarea, select {
+            width: 100%;
+            padding: 10px;
+            font-size: 12px;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            font-family: inherit;
+        }
+
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .form-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-top: 16px;
+        }
+
+        .btn {
+            padding: 10px;
+            border: none;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:active {
+            transform: scale(0.98);
+        }
+
+        .btn-secondary {
+            background: #f7fafc;
+            color: #718096;
+            border: 1px solid #e2e8f0;
+        }
+
+        .btn-secondary:active {
+            background: #edf2f7;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 20px 16px;
+            color: #a0aec0;
+        }
+
+        .empty-icon {
+            font-size: 32px;
+            margin-bottom: 8px;
+        }
+
+        .empty-text {
+            font-size: 12px;
+            margin-bottom: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <h1>Finance Manager</h1>
+            <div class="icons">
+                <span onclick="openNotifications()">🔔</span>
+                <span onclick="openSettings()">⚙️</span>
+            </div>
+        </header>
+
+        <!-- Dashboard Tab -->
+        <section id="dashboard" class="active">
+            <h2>Overview</h2>
+            
+            <!-- Quick Summary -->
+            <div class="summary-grid">
+                <div class="sum-card">
+                    <div class="sum-label">Total Saved</div>
+                    <div class="sum-value">45,000 ฿</div>
+                </div>
+                <div class="sum-card">
+                    <div class="sum-label">Bills This Month</div>
+                    <div class="sum-value">9,867 ฿</div>
+                </div>
+            </div>
+
+            <!-- Important Alerts -->
+            <div class="alert-box">
+                <div class="alert-title">⚠️ Important</div>
+                BlueCard due 20th - 12,756 ฿
+            </div>
+
+            <!-- Next Bills to Pay -->
+            <h2>Next Bills</h2>
+            <div class="bill-item">
+                <div class="bill-left">
+                    <div class="bill-name">💳 BlueCard</div>
+                    <div class="bill-meta">Due Apr 20</div>
+                </div>
+                <div class="bill-status-right">
+                    <div class="bill-amount">12,756 ฿</div>
+                </div>
+            </div>
+
+            <div class="bill-item">
+                <div class="bill-left">
+                    <div class="bill-name">⚡ Electricity</div>
+                    <div class="bill-meta">Due Apr 27</div>
+                </div>
+                <div class="bill-status-right">
+                    <div class="bill-amount">100 ฿</div>
+                </div>
+            </div>
+
+            <div class="bill-item">
+                <div class="bill-left">
+                    <div class="bill-name">💧 Water</div>
+                    <div class="bill-meta">Due Apr 25</div>
+                </div>
+                <div class="bill-status-right">
+                    <div class="bill-amount">150 ฿</div>
+                </div>
+            </div>
+
+            <!-- Top Saving Goal -->
+            <h2>Main Goal</h2>
+            <div class="goal-card">
+                <div class="goal-header">
+                    <div class="goal-name">🏖️ Vacation Fund</div>
+                    <div class="goal-date">Jun 2026</div>
+                </div>
+                <div class="goal-amount">40,000 / 100,000 ฿</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: 40%"></div>
+                </div>
+                <div class="progress-label">
+                    <span>40% complete</span>
+                    <span>60,000 ฿ left</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Saving Tab -->
+        <section id="saving">
+            <h2>Your Goals</h2>
+            
+            <div class="goal-card" onclick="viewGoal(1)">
+                <div class="goal-header">
+                    <div class="goal-name">🏖️ Vacation Fund</div>
+                    <div class="goal-date">03/2026</div>
+                </div>
+                <div class="goal-amount">40,000 / 100,000 ฿</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: 40%"></div>
+                </div>
+                <div class="progress-label">
+                    <span>40%</span>
+                    <span>60,000 ฿ remaining</span>
+                </div>
+            </div>
+
+            <div class="goal-card" onclick="viewGoal(2)">
+                <div class="goal-header">
+                    <div class="goal-name">💻 New Laptop</div>
+                    <div class="goal-date">06/2026</div>
+                </div>
+                <div class="goal-amount">5,000 / 50,000 ฿</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: 10%"></div>
+                </div>
+                <div class="progress-label">
+                    <span>10%</span>
+                    <span>45,000 ฿ remaining</span>
+                </div>
+            </div>
+
+            <div class="goal-card" onclick="viewGoal(3)">
+                <div class="goal-header">
+                    <div class="goal-name">🎓 Education</div>
+                    <div class="goal-date">12/2026</div>
+                </div>
+                <div class="goal-amount">0 / 200,000 ฿</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: 0%"></div>
+                </div>
+                <div class="progress-label">
+                    <span>0%</span>
+                    <span>200,000 ฿ remaining</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Bills Tab -->
+        <section id="bills">
+            <h2>Recurring Bills</h2>
+            
+            <div class="bill-item">
+                <div class="bill-left">
+                    <div class="bill-name">⚡ Electricity</div>
+                    <div class="bill-meta">
+                        <span>Utility</span>
+                        <span>•</span>
+                        <span>Due 27th</span>
+                    </div>
+                    <div class="bill-amount">100 ฿/month</div>
+                </div>
+                <div class="bill-status-right">
+                    <span class="status-badge pending">Pending</span>
+                </div>
+            </div>
+
+            <div class="bill-item">
+                <div class="bill-left">
+                    <div class="bill-name">💧 Water</div>
+                    <div class="bill-meta">
+                        <span>Utility</span>
+                        <span>•</span>
+                        <span>Due 27th</span>
+                    </div>
+                    <div class="bill-amount">50 ฿/month</div>
+                </div>
+                <div class="bill-status-right">
+                    <span class="status-badge pending">Pending</span>
+                </div>
+            </div>
+
+            <div class="bill-item paid">
+                <div class="bill-left">
+                    <div class="bill-name">📱 Dtac</div>
+                    <div class="bill-meta">
+                        <span>Subscription</span>
+                        <span>•</span>
+                        <span>Due 1st</span>
+                    </div>
+                    <div class="bill-amount">200 ฿/month</div>
+                </div>
+                <div class="bill-status-right">
+                    <span class="status-badge paid">Paid</span>
+                </div>
+            </div>
+
+            <div class="bill-item">
+                <div class="bill-left">
+                    <div class="bill-name">🏠 Rent & Common</div>
+                    <div class="bill-meta">
+                        <span>Subscription</span>
+                        <span>•</span>
+                        <span>Due 1st</span>
+                    </div>
+                    <div class="bill-amount">31,500 ฿/month</div>
+                </div>
+                <div class="bill-status-right">
+                    <span class="status-badge pending">Pending</span>
+                </div>
+            </div>
+
+            <h2>Other Debts</h2>
+
+            <div class="bill-item">
+                <div class="bill-left">
+                    <div class="bill-name">🔵 BlueCard</div>
+                    <div class="bill-meta">
+                        <span>Credit Card</span>
+                        <span>•</span>
+                        <span>Due 20th</span>
+                    </div>
+                    <div class="bill-amount-large">12,756 ฿</div>
+                    <div class="bill-progress">
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: 100%"></div>
+                        </div>
+                        <div class="progress-label">
+                            <span>Last payment: 05/03</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="bill-status-right">
+                    <span class="status-badge pending">Due Soon</span>
+                </div>
+            </div>
+
+            <div class="bill-item">
+                <div class="bill-left">
+                    <div class="bill-name">🔴 CARD_X</div>
+                    <div class="bill-meta">
+                        <span>Credit Card</span>
+                        <span>•</span>
+                        <span>Due 8th</span>
+                    </div>
+                    <div class="bill-amount-large">1,667 ฿</div>
+                    <div class="bill-progress">
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: 100%"></div>
+                        </div>
+                        <div class="progress-label">
+                            <span>Last payment: 04/02</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="bill-status-right">
+                    <span class="status-badge overdue">3 days late</span>
+                </div>
+            </div>
+
+            <h2>Loan/Installment</h2>
+
+            <div class="empty-state">
+                <div class="empty-icon">💳</div>
+                <div class="empty-text">No active loans or installments</div>
+            </div>
+        </section>
+
+        <!-- More Tab -->
+        <section id="more">
+            <div class="profile-header">
+                <div class="profile-avatar">👤</div>
+                <div class="profile-name">John Doe</div>
+                <div class="profile-email">john@example.com</div>
+            </div>
+
+            <div class="menu-section">
+                <div class="menu-title">Preferences</div>
+                <div class="menu-item" onclick="openSettings()">
+                    <span class="menu-label">Settings</span>
+                    <span class="menu-icon">⚙️</span>
+                </div>
+                <div class="menu-item" onclick="openNotifications()">
+                    <span class="menu-label">Notifications</span>
+                    <span class="menu-icon">🔔</span>
+                </div>
+            </div>
+
+            <div class="menu-section">
+                <div class="menu-title">Support</div>
+                <div class="menu-item">
+                    <span class="menu-label">Help & FAQ</span>
+                    <span class="menu-icon">❓</span>
+                </div>
+                <div class="menu-item">
+                    <span class="menu-label">Contact Us</span>
+                    <span class="menu-icon">📧</span>
+                </div>
+            </div>
+
+            <div class="menu-section">
+                <div class="menu-title">About</div>
+                <div class="menu-item">
+                    <span class="menu-label">App Version</span>
+                    <span class="menu-icon">1.0.0</span>
+                </div>
+                <div class="menu-item">
+                    <span class="menu-label">Privacy Policy</span>
+                    <span class="menu-icon">📄</span>
+                </div>
+            </div>
+
+            <div class="menu-section">
+                <div class="menu-item" style="border-top: 1px solid #e2e8f0; color: #f56565;">
+                    <span class="menu-label">Logout</span>
+                    <span class="menu-icon">🚪</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- FAB Button -->
+        <button class="fab" onclick="openAddMenu()">+</button>
+
+        <!-- Bottom Navigation -->
+        <div class="bottom-nav">
+            <div class="nav-item active" onclick="switchNav('dashboard')">
+                <div class="nav-icon">📊</div>
+                <span>Dashboard</span>
+            </div>
+            <div class="nav-item" onclick="switchNav('saving')">
+                <div class="nav-icon">💰</div>
+                <span>Saving</span>
+            </div>
+            <div class="nav-item" onclick="switchNav('bills')">
+                <div class="nav-icon">💳</div>
+                <span>Bills</span>
+            </div>
+            <div class="nav-item" onclick="switchNav('more')">
+                <div class="nav-icon">⋯</div>
+                <span>More</span>
+            </div>
+        </div>
+
+        <!-- Modals -->
+        <!-- Add Goal Modal -->
+        <div class="modal" id="addGoalModal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Add Saving Goal</h2>
+                    <button class="modal-close" onclick="closeModal('addGoalModal')">✕</button>
+                </div>
+                <form>
+                    <div class="form-group">
+                        <label>Goal Name</label>
+                        <input type="text" placeholder="e.g., Vacation Fund">
+                    </div>
+                    <div class="form-group">
+                        <label>Target Amount</label>
+                        <input type="number" placeholder="100,000">
+                    </div>
+                    <div class="form-group">
+                        <label>Target Date (Optional)</label>
+                        <input type="date">
+                    </div>
+                    <div class="form-buttons">
+                        <button type="button" class="btn btn-secondary" onclick="closeModal('addGoalModal')">Cancel</button>
+                        <button type="button" class="btn btn-primary">Save</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Add Bill Modal -->
+        <div class="modal" id="addBillModal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Add Bill</h2>
+                    <button class="modal-close" onclick="closeModal('addBillModal')">✕</button>
+                </div>
+                <form>
+                    <div class="form-group">
+                        <label>Bill Type</label>
+                        <select onchange="updateBillForm(this.value)">
+                            <option value="">Select type...</option>
+                            <option value="recurring">Recurring Bill</option>
+                            <option value="debt">Debt/Loan</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Sub Type</label>
+                        <select id="subTypeSelect">
+                            <option value="">Select sub type...</option>
+                            <option value="utility">Utility</option>
+                            <option value="subscription">Subscription</option>
+                            <option value="loan">Loan</option>
+                            <option value="installment">Installment</option>
+                            <option value="credit_card">Credit Card</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Bill Name</label>
+                        <input type="text" placeholder="e.g., Electricity, BlueCard">
+                    </div>
+
+                    <div class="form-group" id="amountGroup">
+                        <label>Amount (Monthly)</label>
+                        <input type="number" placeholder="1,000">
+                    </div>
+
+                    <div class="form-group" id="totalAmountGroup" style="display: none;">
+                        <label>Total Amount</label>
+                        <input type="number" placeholder="50,000">
+                    </div>
+
+                    <div class="form-group" id="remainingAmountGroup" style="display: none;">
+                        <label>Remaining Amount</label>
+                        <input type="number" placeholder="50,000">
+                    </div>
+
+                    <div class="form-group" id="installmentAmountGroup" style="display: none;">
+                        <label>Installment Amount</label>
+                        <input type="number" placeholder="5,000">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Due Day</label>
+                        <input type="number" placeholder="27" min="1" max="31">
+                    </div>
+
+                    <div class="form-group" id="startDateGroup">
+                        <label>Start Date</label>
+                        <input type="date">
+                    </div>
+
+                    <div class="form-buttons">
+                        <button type="button" class="btn btn-secondary" onclick="closeModal('addBillModal')">Cancel</button>
+                        <button type="button" class="btn btn-primary">Save</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function switchTab(tabName) {
+            // Hide all sections
+            document.querySelectorAll('section').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
+            
+            // Show selected section
+            document.getElementById(tabName).classList.add('active');
+            event.target.classList.add('active');
+            
+            // Update bottom nav
+            switchNav(tabName);
+        }
+
+        function switchNav(tabName) {
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            event.target.closest('.nav-item').classList.add('active');
+            
+            switchTab(tabName);
+        }
+
+        function openModal(modalId) {
+            document.getElementById(modalId).classList.add('active');
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+        }
+
+        function openAddMenu() {
+            const activeTab = document.querySelector('.tab-btn.active').textContent.trim();
+            if (activeTab.includes('Saving')) {
+                openModal('addGoalModal');
+            } else {
+                openModal('addBillModal');
+            }
+        }
+
+        function updateBillForm(billType) {
+            const amountGroup = document.getElementById('amountGroup');
+            const totalAmountGroup = document.getElementById('totalAmountGroup');
+            const remainingAmountGroup = document.getElementById('remainingAmountGroup');
+            const installmentAmountGroup = document.getElementById('installmentAmountGroup');
+            const startDateGroup = document.getElementById('startDateGroup');
+
+            // Reset all
+            amountGroup.style.display = 'block';
+            totalAmountGroup.style.display = 'none';
+            remainingAmountGroup.style.display = 'none';
+            installmentAmountGroup.style.display = 'none';
+            startDateGroup.style.display = 'block';
+
+            if (billType === 'recurring') {
+                amountGroup.style.display = 'block';
+                amountGroup.querySelector('label').textContent = 'Amount (Monthly)';
+            } else if (billType === 'debt') {
+                amountGroup.style.display = 'none';
+                totalAmountGroup.style.display = 'block';
+                remainingAmountGroup.style.display = 'block';
+                
+                const subType = document.getElementById('subTypeSelect').value;
+                if (subType === 'loan' || subType === 'installment') {
+                    installmentAmountGroup.style.display = 'block';
+                }
+            }
+        }
+
+        function viewGoal(id) {
+            console.log('View goal:', id);
+            // TODO: Open goal detail modal
+        }
+
+        function openNotifications() {
+            console.log('Notifications');
+        }
+
+        function openSettings() {
+            console.log('Settings');
+        }
+
+        // Update installment field based on sub-type
+        document.getElementById('subTypeSelect')?.addEventListener('change', function() {
+            const billType = document.querySelector('form select:first-child').value;
+            if (billType === 'debt') {
+                updateBillForm('debt');
+            }
+        });
+    </script>
+</body>
+</html>
