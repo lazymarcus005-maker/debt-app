@@ -10,7 +10,7 @@ services:
         - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY:-dummy-key}
         - JWT_SECRET=${JWT_SECRET:-your-secret-key-change-in-production}
     ports:
-      - "${APP_PORT:-3030}:3000"
+      - "${APP_PORT:-3030}:3030"
     env_file:
       - .env.local
     environment:
