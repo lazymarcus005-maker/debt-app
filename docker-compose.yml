@@ -5,14 +5,18 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        - SUPABASE_URL=${SUPABASE_URL:-https://dummy.supabase.co}
+        - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY:-dummy-key}
+        - JWT_SECRET=${JWT_SECRET:-your-secret-key-change-in-production}
+        - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-https://debt.codingholiday.com}
     ports:
       - "${APP_PORT:-3030}:3030"
     env_file:
       - .env.local
     environment:
-      - NODE_ENV=production        # ← เปลี่ยนจาก development
+      - NODE_ENV=production
       - PORT=3030
-      - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
       - SUPABASE_URL=${SUPABASE_URL}
       - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
       - JWT_SECRET=${JWT_SECRET:-your-secret-key-change-in-production}

@@ -1,4 +1,4 @@
-FROM node:18-alpine
+FROM node:20-alpine
 
 WORKDIR /app
 
@@ -6,6 +6,7 @@ WORKDIR /app
 ARG SUPABASE_URL=https://dummy.supabase.co
 ARG SUPABASE_SERVICE_ROLE_KEY=dummy-key
 ARG JWT_SECRET=dummy-secret
+ARG NEXT_PUBLIC_APP_URL=https://debt.codingholiday.com
 
 # Set build-time environment variables
 ENV SUPABASE_URL=${SUPABASE_URL}
