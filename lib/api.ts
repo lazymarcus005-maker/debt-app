@@ -1,7 +1,7 @@
 import Cookies from 'js-cookie';
 import axios from 'axios';
 
-const API_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://debt.codingholiday.com';
+const API_URL = 'https://debt.codingholiday.com';//process.env.NEXT_PUBLIC_APP_URL || 'https://debt.codingholiday.com';
 
 export interface AuthUser {
   id: number;
