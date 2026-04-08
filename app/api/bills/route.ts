@@ -37,7 +37,42 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    return NextResponse.json({ bills }, { status: 200 });
+    const billIds = (bills || []).map((bill) => bill.id);
+    let paymentCountsByBillId: Record<number, number> = {};
+
+    if (billIds.length > 0) {
+      const { data: payments, error: paymentsError } = await supabase
+        .from('bill_payments')
+        .select('bill_id')
+        .in('bill_id', billIds);
+
+      if (paymentsError) {
+        return NextResponse.json(
+          { error: 'Failed to fetch bill payments' },
+          { status: 500 }
+        );
+      }
+
+      paymentCountsByBillId = (payments || []).reduce((counts: Record<number, number>, payment) => {
+        counts[payment.bill_id] = (counts[payment.bill_id] || 0) + 1;
+        return counts;
+      }, {});
+    }
+
+    const billsWithCounts = (bills || []).map((bill) => {
+      const paidInstallments = paymentCountsByBillId[bill.id] || 0;
+      const totalInstallments = bill.total_amount && bill.installment_amount
+        ? Math.ceil(Number(bill.total_amount) / Number(bill.installment_amount))
+        : null;
+
+      return {
+        ...bill,
+        paid_installments: paidInstallments,
+        total_installments: totalInstallments
+      };
+    });
+
+    return NextResponse.json({ bills: billsWithCounts }, { status: 200 });
   } catch (error) {
     console.error('Error fetching bills:', error);
     return NextResponse.json(

@@ -20,6 +20,7 @@ export default function SavingsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
+  const [deletingSavingId, setDeletingSavingId] = useState<number | null>(null);
   const [formData, setFormData] = useState({
     goal_name: '',
     category: 'other',
@@ -69,6 +70,23 @@ export default function SavingsPage() {
       await fetchSavings();
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to create saving');
+    }
+  };
+
+  const handleDeleteSaving = async (savingId: number) => {
+    const confirmed = window.confirm('Delete this savings goal?');
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setDeletingSavingId(savingId);
+      await savingsAPI.delete(savingId);
+      await fetchSavings();
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to delete saving');
+    } finally {
+      setDeletingSavingId(null);
     }
   };
 
@@ -348,21 +366,41 @@ export default function SavingsPage() {
                   </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '12px', color: '#6b7280' }}>
-                  <div>
-                    <span>Remaining: </span>
-                    <strong style={{ color: '#111827' }}>
-                      ฿{remaining.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
-                    </strong>
-                  </div>
-                  {daysLeft !== null && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', fontSize: '12px', color: '#6b7280' }}>
+                  <div style={{ display: 'grid', gap: '4px' }}>
                     <div>
-                      <span>Days left: </span>
-                      <strong style={{ color: daysLeft > 0 ? '#111827' : '#dc2626' }}>
-                        {daysLeft > 0 ? daysLeft : 'Overdue'}
+                      <span>Remaining: </span>
+                      <strong style={{ color: '#111827' }}>
+                        ฿{remaining.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
                       </strong>
                     </div>
-                  )}
+                    {daysLeft !== null && (
+                      <div>
+                        <span>Days left: </span>
+                        <strong style={{ color: daysLeft > 0 ? '#111827' : '#dc2626' }}>
+                          {daysLeft > 0 ? daysLeft : 'Overdue'}
+                        </strong>
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteSaving(saving.id)}
+                    disabled={deletingSavingId === saving.id}
+                    style={{
+                      border: '1px solid #fecaca',
+                      backgroundColor: deletingSavingId === saving.id ? '#fee2e2' : '#fff5f5',
+                      color: '#dc2626',
+                      borderRadius: '6px',
+                      padding: '8px 10px',
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      cursor: deletingSavingId === saving.id ? 'wait' : 'pointer'
+                    }}
+                    onClickCapture={(e) => e.stopPropagation()}
+                  >
+                    {deletingSavingId === saving.id ? 'Deleting...' : 'Delete'}
+                  </button>
                 </div>
               </div>
             );

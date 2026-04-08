@@ -54,6 +54,16 @@ export const billsAPI = {
     const response = await api.post('/api/bills', billData);
     return response.data.bill;
   },
+
+  update: async (id: number, billData: any) => {
+    const response = await api.put(`/api/bills/${id}`, billData);
+    return response.data.bill;
+  },
+
+  delete: async (id: number) => {
+    await api.delete(`/api/bills/${id}`);
+    return true;
+  },
 };
 
 export const savingsAPI = {
