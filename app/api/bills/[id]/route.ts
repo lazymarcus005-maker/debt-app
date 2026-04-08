@@ -2,6 +2,86 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { verifyToken } from '@/lib/jwt';
 
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const authHeader = request.headers.get('authorization');
+
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    const token = authHeader.substring(7);
+    const decoded: any = verifyToken(token);
+
+    if (!decoded) {
+      return NextResponse.json(
+        { error: 'Invalid token' },
+        { status: 401 }
+      );
+    }
+
+    const billId = params.id;
+
+    const { data: bill, error: billError } = await supabase
+      .from('bills')
+      .select('*')
+      .eq('id', billId)
+      .eq('user_id', decoded.userId)
+      .single();
+
+    if (billError || !bill) {
+      return NextResponse.json(
+        { error: 'Bill not found' },
+        { status: 404 }
+      );
+    }
+
+    const { data: creditor } = bill.creditor_id
+      ? await supabase
+          .from('creditors')
+          .select('*')
+          .eq('id', bill.creditor_id)
+          .single()
+      : { data: null };
+
+    const { data: payments, error: paymentsError } = await supabase
+      .from('bill_payments')
+      .select('*')
+      .eq('bill_id', billId)
+      .order('paid_at', { ascending: false });
+
+    if (paymentsError) {
+      return NextResponse.json(
+        { error: 'Failed to fetch bill payments' },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json(
+      {
+        bill: {
+          ...bill,
+          creditor: creditor || null
+        },
+        payments: payments || []
+      },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error('Error fetching bill:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
 export async function PUT(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -32,6 +112,7 @@ export async function PUT(
       name,
       billing_type,
       sub_type,
+      description,
       amount,
       due_day,
       start_date,
@@ -74,6 +155,7 @@ export async function PUT(
         name,
         billing_type,
         sub_type,
+        description,
         amount: billing_type === 'recurring' ? amount : null,
         due_day,
         start_date,
@@ -81,7 +163,7 @@ export async function PUT(
         total_amount: billing_type === 'debt' ? total_amount : null,
         remaining_amount: billing_type === 'debt' ? remaining_amount : null,
         installment_amount: billing_type === 'debt' ? installment_amount : null,
-        creditor_id: billing_type === 'debt' ? creditor_id : null,
+        creditor_id: creditor_id || null,
         updated_at: new Date().toISOString()
       })
       .eq('id', billId)

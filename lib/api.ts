@@ -50,6 +50,11 @@ export const billsAPI = {
     return response.data.bills;
   },
 
+  getById: async (id: number) => {
+    const response = await api.get(`/api/bills/${id}`);
+    return response.data;
+  },
+
   create: async (billData: any) => {
     const response = await api.post('/api/bills', billData);
     return response.data.bill;

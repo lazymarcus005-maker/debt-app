@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS public.BILLS (
   name VARCHAR(255) NOT NULL,
   billing_type VARCHAR(50) NOT NULL, -- 'recurring' or 'debt'
   sub_type VARCHAR(50) NOT NULL, -- 'utility', 'subscription', 'loan', 'installment', 'credit_card'
+  description TEXT,
   amount DECIMAL(10, 2),
   due_day INTEGER NOT NULL CHECK (due_day >= 1 AND due_day <= 31),
   start_date DATE NOT NULL,
@@ -34,6 +35,10 @@ CREATE TABLE IF NOT EXISTS public.BILLS (
 
 -- Enable RLS on BILLS
 ALTER TABLE public.BILLS ENABLE ROW LEVEL SECURITY;
+
+-- Migration helper for existing databases
+ALTER TABLE public.BILLS
+  ADD COLUMN IF NOT EXISTS description TEXT;
 
 -- Create BILL_PAYMENTS table
 CREATE TABLE IF NOT EXISTS public.BILL_PAYMENTS (

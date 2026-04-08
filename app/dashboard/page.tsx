@@ -10,6 +10,7 @@ interface Bill {
   name: string;
   billing_type: string;
   sub_type: string;
+  description?: string;
   amount?: number;
   total_amount?: number;
   remaining_amount?: number;
@@ -48,16 +49,22 @@ export default function DashboardPage() {
   const [showAddGoalModal, setShowAddGoalModal] = useState(false);
   const [showAddBillModal, setShowAddBillModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showBillDetailModal, setShowBillDetailModal] = useState(false);
   const [showAddCreditorModal, setShowAddCreditorModal] = useState(false);
   const [newCreditorName, setNewCreditorName] = useState('');
   const [selectedBillForPayment, setSelectedBillForPayment] = useState<Bill | null>(null);
+  const [selectedBillForDetail, setSelectedBillForDetail] = useState<Bill | null>(null);
+  const [selectedBillPayments, setSelectedBillPayments] = useState<any[]>([]);
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
   const [paymentError, setPaymentError] = useState('');
+  const [billDetailError, setBillDetailError] = useState('');
+  const [billDetailLoading, setBillDetailLoading] = useState(false);
   const [billForm, setBillForm] = useState({
     name: '',
     billing_type: 'recurring',
     sub_type: 'utility',
+    description: '',
     amount: '',
     total_amount: '',
     remaining_amount: '',
@@ -77,6 +84,9 @@ export default function DashboardPage() {
     description: ''
   });
   const [goalError, setGoalError] = useState('');
+  const [editingGoalId, setEditingGoalId] = useState<number | null>(null);
+  const [selectedGoalForActions, setSelectedGoalForActions] = useState<SavingGoal | null>(null);
+  const [showGoalActionsModal, setShowGoalActionsModal] = useState(false);
   const [selectedGoalForDeposit, setSelectedGoalForDeposit] = useState<SavingGoal | null>(null);
   const [depositAmount, setDepositAmount] = useState('');
   const [depositNote, setDepositNote] = useState('');
@@ -84,6 +94,8 @@ export default function DashboardPage() {
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [goalDeposits, setGoalDeposits] = useState<any[]>([]);
   const [billsSubTab, setBillsSubTab] = useState<'recurring' | 'debts'>('recurring');
+  const [recurringSubTypeFilter, setRecurringSubTypeFilter] = useState<'all' | 'utility' | 'subscription'>('all');
+  const [debtSubTypeFilter, setDebtSubTypeFilter] = useState<'all' | 'loan' | 'installment' | 'credit_card'>('all');
   const [searchBill, setSearchBill] = useState('');
   const [upcomingBillsCount, setUpcomingBillsCount] = useState(0);
   const [overdueBillsCount, setOverdueBillsCount] = useState(0);
@@ -144,6 +156,15 @@ export default function DashboardPage() {
 
   const handleAddFAB = () => {
     if (currentTab === 'saving') {
+      setEditingGoalId(null);
+      setGoalError('');
+      setGoalForm({
+        goal_name: '',
+        category: 'other',
+        target_amount: '',
+        target_date: '',
+        description: ''
+      });
       setShowAddGoalModal(true);
     } else if (currentTab === 'bills') {
       setEditingBillId(null);
@@ -151,6 +172,7 @@ export default function DashboardPage() {
         name: '',
         billing_type: 'recurring',
         sub_type: 'utility',
+        description: '',
         amount: '',
         total_amount: '',
         remaining_amount: '',
@@ -170,6 +192,7 @@ export default function DashboardPage() {
       name: bill.name || '',
       billing_type: bill.billing_type || 'recurring',
       sub_type: bill.sub_type || 'utility',
+        description: bill.description || '',
       amount: bill.amount?.toString() || '',
       total_amount: bill.total_amount?.toString() || '',
       remaining_amount: bill.remaining_amount?.toString() || '',
@@ -193,20 +216,52 @@ export default function DashboardPage() {
         return;
       }
 
-      await savingsAPI.create({
+      const payload = {
         goal_name,
         category,
         target_amount: parseFloat(target_amount),
         target_date,
         description
-      });
+      };
+
+      if (editingGoalId) {
+        await savingsAPI.update(editingGoalId, payload);
+      } else {
+        await savingsAPI.create(payload);
+      }
 
       await loadData();
       setGoalForm({ goal_name: '', category: 'other', target_amount: '', target_date: '', description: '' });
+      setEditingGoalId(null);
       setShowAddGoalModal(false);
     } catch (error: any) {
-      setGoalError(error.message || 'Failed to add goal');
+      setGoalError(error.response?.data?.error || error.message || 'Failed to add goal');
     }
+  };
+
+  const handleEditGoal = (goal: SavingGoal) => {
+    setEditingGoalId(goal.id);
+    setGoalError('');
+    setGoalForm({
+      goal_name: goal.goal_name,
+      category: goal.category,
+      target_amount: goal.target_amount.toString(),
+      target_date: goal.target_date ? goal.target_date.split('T')[0] : '',
+      description: goal.description || ''
+    });
+    setShowDepositModal(false);
+    setSelectedGoalForDeposit(null);
+    setGoalDeposits([]);
+    setShowAddGoalModal(true);
+  };
+
+  const handleCloseGoalModal = () => {
+    setShowAddGoalModal(false);
+    setGoalError('');
+    setEditingGoalId(null);
+    setShowGoalActionsModal(false);
+    setSelectedGoalForActions(null);
+    setGoalForm({ goal_name: '', category: 'other', target_amount: '', target_date: '', description: '' });
   };
 
   const handleDeleteSaving = async (savingId: number) => {
@@ -218,6 +273,19 @@ export default function DashboardPage() {
     try {
       setDeletingSavingId(savingId);
       await savingsAPI.delete(savingId);
+      if (selectedGoalForDeposit?.id === savingId) {
+        setShowDepositModal(false);
+        setSelectedGoalForDeposit(null);
+        setGoalDeposits([]);
+      }
+      if (selectedGoalForActions?.id === savingId) {
+        setShowGoalActionsModal(false);
+        setSelectedGoalForActions(null);
+        setGoalDeposits([]);
+      }
+      if (editingGoalId === savingId) {
+        handleCloseGoalModal();
+      }
       await loadData();
     } catch (error: any) {
       alert(error.response?.data?.error || 'Failed to delete saving');
@@ -349,15 +417,25 @@ export default function DashboardPage() {
     return bills.filter(bill => isOverdue(bill));
   };
 
-  const getBillStatusOrder = (bill: Bill): number => {
-    if (isOverdue(bill)) return 0;
-    if (isBillPaid(bill)) return 2;
-    return 1;
+  const getCreditorName = (creditorId?: number | null) => {
+    if (!creditorId) {
+      return '';
+    }
+
+    return creditors.find((creditor) => creditor.id === creditorId)?.name || '';
+  };
+
+  const getBillDisplayAmount = (bill: Bill) => {
+    if (bill.billing_type === 'recurring') {
+      return bill.amount || 0;
+    }
+
+    return bill.remaining_amount || bill.installment_amount || bill.total_amount || bill.amount || 0;
   };
 
   const sortBillsByStatus = (items: Bill[]): Bill[] => {
     return [...items].sort((a, b) => {
-      const statusDiff = getBillStatusOrder(a) - getBillStatusOrder(b);
+      const statusDiff = (isOverdue(a) ? 0 : isBillPaid(a) ? 2 : 1) - (isOverdue(b) ? 0 : isBillPaid(b) ? 2 : 1);
       if (statusDiff !== 0) {
         return statusDiff;
       }
@@ -366,19 +444,102 @@ export default function DashboardPage() {
     });
   };
 
+  const recurringBills = sortBillsByStatus(
+    bills.filter((bill) => {
+      const matchesSearch = bill.name.toLowerCase().includes(searchBill.toLowerCase());
+      const matchesSubtype = recurringSubTypeFilter === 'all' || bill.sub_type === recurringSubTypeFilter;
+      return bill.billing_type === 'recurring' && matchesSearch && matchesSubtype;
+    })
+  );
+
+  const debtBills = sortBillsByStatus(
+    bills.filter((bill) => {
+      const matchesSearch = bill.name.toLowerCase().includes(searchBill.toLowerCase());
+      const matchesSubtype = debtSubTypeFilter === 'all' || bill.sub_type === debtSubTypeFilter;
+      return bill.billing_type === 'debt' && matchesSearch && matchesSubtype;
+    })
+  );
+
+  const activeBillList = billsSubTab === 'recurring' ? recurringBills : debtBills;
+  const activeBillCount = activeBillList.length;
+  const activeBillTotal = activeBillList.reduce((sum, bill) => sum + getBillDisplayAmount(bill), 0);
+
+  const billActionButtonStyle = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '6px',
+    width: '100%',
+    minHeight: '46px',
+    padding: '12px 14px',
+    borderRadius: '12px',
+    border: '1px solid rgba(148, 163, 184, 0.24)',
+    backgroundColor: '#f8fafc',
+    color: '#0f172a',
+    fontSize: '13px',
+    fontWeight: 600,
+    boxShadow: '0 1px 2px rgba(15, 23, 42, 0.06)',
+    transition: 'transform 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease',
+    cursor: 'pointer'
+  };
+
+  const billDangerButtonStyle = {
+    ...billActionButtonStyle,
+    color: '#b91c1c',
+    borderColor: 'rgba(248, 113, 113, 0.28)',
+    backgroundColor: '#fff5f5'
+  };
+
+  const goalActionButtonStyle = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '6px',
+    minHeight: '36px',
+    padding: '8px 12px',
+    borderRadius: '10px',
+    border: '1px solid rgba(148, 163, 184, 0.24)',
+    backgroundColor: '#f8fafc',
+    color: '#0f172a',
+    fontSize: '12px',
+    fontWeight: 600,
+    cursor: 'pointer'
+  };
+
+  const goalDangerButtonStyle = {
+    ...goalActionButtonStyle,
+    color: '#b91c1c',
+    borderColor: 'rgba(248, 113, 113, 0.28)',
+    backgroundColor: '#fff5f5'
+  };
+
+  const loadGoalDeposits = async (goalId: number) => {
+    try {
+      const data = await savingsAPI.getById(goalId);
+      setGoalDeposits(data.deposits || []);
+    } catch (error) {
+      console.error('Failed to load deposits:', error);
+      setGoalDeposits([]);
+    }
+  };
+
   const openDepositModal = async (goal: SavingGoal) => {
     setSelectedGoalForDeposit(goal);
     setDepositAmount('');
     setDepositNote('');
     setDepositError('');
     setShowDepositModal(true);
-    
-    try {
-      const data = await savingsAPI.getById(goal.id);
-      setGoalDeposits(data.deposits || []);
-    } catch (error) {
-      console.error('Failed to load deposits:', error);
-    }
+    setShowGoalActionsModal(false);
+    setSelectedGoalForActions(null);
+    await loadGoalDeposits(goal.id);
+  };
+
+  const openGoalActionsModal = async (goal: SavingGoal) => {
+    setSelectedGoalForActions(goal);
+    setShowGoalActionsModal(true);
+    setShowDepositModal(false);
+    setSelectedGoalForDeposit(null);
+    await loadGoalDeposits(goal.id);
   };
 
   const handleRecordDeposit = async (e: React.FormEvent) => {
@@ -450,9 +611,14 @@ export default function DashboardPage() {
         name,
         billing_type,
         sub_type,
+        description: billForm.description,
         due_day: parseInt(due_day),
         start_date
       };
+
+      if (billForm.creditor_id) {
+        billData.creditor_id = parseInt(billForm.creditor_id);
+      }
 
       if (billing_type === 'recurring') {
         if (!billForm.amount) {
@@ -472,10 +638,6 @@ export default function DashboardPage() {
           billData.installment_amount = parseFloat(billForm.installment_amount);
         }
 
-        // Add creditor for loan/installment
-        if ((sub_type === 'loan' || sub_type === 'installment') && billForm.creditor_id) {
-          billData.creditor_id = parseInt(billForm.creditor_id);
-        }
       }
 
       if (editingBillId) {
@@ -492,6 +654,7 @@ export default function DashboardPage() {
         name: '',
         billing_type: 'recurring',
         sub_type: 'utility',
+        description: '',
         amount: '',
         total_amount: '',
         remaining_amount: '',
@@ -509,29 +672,38 @@ export default function DashboardPage() {
     }
   };
 
-  const handleDeleteBill = async (billId: number) => {
-    const confirmed = window.confirm('Delete this bill?');
-    if (!confirmed) {
-      return;
-    }
-
-    try {
-      setDeletingBillId(billId);
-      await billsAPI.delete(billId);
-      await loadData();
-    } catch (error: any) {
-      alert(error.response?.data?.error || 'Failed to delete bill');
-    } finally {
-      setDeletingBillId(null);
-    }
-  };
-
   const openPaymentModal = (bill: Bill) => {
     setSelectedBillForPayment(bill);
     setPaymentAmount(bill.amount?.toString() || '');
     setPaymentDate(new Date().toISOString().split('T')[0]);
     setPaymentError('');
     setShowPaymentModal(true);
+  };
+
+  const openBillDetailModal = async (bill: Bill) => {
+    setSelectedBillForDetail(bill);
+    setSelectedBillPayments([]);
+    setBillDetailError('');
+    setBillDetailLoading(true);
+    setShowBillDetailModal(true);
+
+    try {
+      const data = await billsAPI.getById(bill.id);
+      setSelectedBillForDetail(data.bill || bill);
+      setSelectedBillPayments(data.payments || []);
+    } catch (error: any) {
+      setBillDetailError(error.response?.data?.error || 'Failed to load bill details');
+    } finally {
+      setBillDetailLoading(false);
+    }
+  };
+
+  const closeBillDetailModal = () => {
+    setShowBillDetailModal(false);
+    setSelectedBillForDetail(null);
+    setSelectedBillPayments([]);
+    setBillDetailError('');
+    setBillDetailLoading(false);
   };
 
   const handleRecordPayment = async (e: React.FormEvent) => {
@@ -580,6 +752,23 @@ export default function DashboardPage() {
       setPaymentError(error.message || 'Failed to record payment');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteBill = async (billId: number) => {
+    const confirmed = window.confirm('Delete this bill?');
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setDeletingBillId(billId);
+      await billsAPI.delete(billId);
+      await loadData();
+    } catch (error: any) {
+      alert(error.response?.data?.error || 'Failed to delete bill');
+    } finally {
+      setDeletingBillId(null);
     }
   };
 
@@ -667,7 +856,7 @@ export default function DashboardPage() {
 
       {/* Dashboard Tab */}
       {currentTab === 'dashboard' && (
-        <section className="active" style={{ display: 'block' }}>
+        <section className="active" style={{ display: 'block', paddingBottom: '100px' }}>
           <h2>Overview</h2>
 
           <div className="summary-grid">
@@ -709,53 +898,51 @@ export default function DashboardPage() {
           </div>
 
           <h2>Next Bills</h2>
-          <div style={{ maxHeight: '250px', overflowY: 'auto', paddingRight: '4px', marginBottom: '8px' }}>
-            {getUpcomingBills().slice(0, 3).map((bill) => {
-              const daysUntil = getDaysUntilDue(bill);
-              return (
-                <div key={bill.id} className="bill-item" style={{
-                  borderLeftColor: '#ef4444',
-                  background: '#fff5f5'
-                }}>
-                  <div className="bill-left">
-                    <div className="bill-name">{bill.name}</div>
-                    <div className="bill-meta">Due {bill.due_day}th</div>
-                  </div>
-                  <div className="bill-status-right">
-                    <span className="status-badge" style={{
-                      backgroundColor: '#ef4444',
-                      color: 'white',
-                      fontSize: '10px'
-                    }}>
-                      {daysUntil} day{daysUntil !== 1 ? 's' : ''}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-            
-            {getOverdueBills().map((bill) => (
-              <div key={`overdue-${bill.id}`} className="bill-item" style={{
-                borderLeftColor: '#991b1b',
-                background: '#7f1d1d',
-                borderLeft: '4px solid #dc2626'
+          {getUpcomingBills().slice(0, 3).map((bill) => {
+            const daysUntil = getDaysUntilDue(bill);
+            return (
+              <div key={bill.id} className="bill-item" style={{
+                borderLeftColor: '#ef4444',
+                background: '#fff5f5'
               }}>
                 <div className="bill-left">
-                  <div className="bill-name" style={{ color: 'white' }}>🚨 {bill.name}</div>
-                  <div className="bill-meta" style={{ color: '#fca5a5' }}>OVERDUE • Due {bill.due_day}th</div>
+                  <div className="bill-name">{bill.name}</div>
+                  <div className="bill-meta">Due {bill.due_day}th</div>
                 </div>
                 <div className="bill-status-right">
                   <span className="status-badge" style={{
-                    backgroundColor: '#dc2626',
+                    backgroundColor: '#ef4444',
                     color: 'white',
                     fontSize: '10px'
                   }}>
-                    OVERDUE
+                    {daysUntil} day{daysUntil !== 1 ? 's' : ''}
                   </span>
                 </div>
               </div>
-            ))}
-          </div>
+            );
+          })}
+          
+          {getOverdueBills().map((bill) => (
+            <div key={`overdue-${bill.id}`} className="bill-item" style={{
+              borderLeftColor: '#991b1b',
+              background: '#7f1d1d',
+              borderLeft: '4px solid #dc2626'
+            }}>
+              <div className="bill-left">
+                <div className="bill-name" style={{ color: 'white' }}>🚨 {bill.name}</div>
+                <div className="bill-meta" style={{ color: '#fca5a5' }}>OVERDUE • Due {bill.due_day}th</div>
+              </div>
+              <div className="bill-status-right">
+                <span className="status-badge" style={{
+                  backgroundColor: '#dc2626',
+                  color: 'white',
+                  fontSize: '10px'
+                }}>
+                  OVERDUE
+                </span>
+              </div>
+            </div>
+          ))}
 
           <h2>Main Goal</h2>
           {getTopSavingGoals().length === 0 ? (
@@ -798,8 +985,8 @@ export default function DashboardPage() {
 
       {/* Saving Tab */}
       {currentTab === 'saving' && (
-        <section className="active" style={{ display: 'block' }}>
-          <h2>Saving List</h2>
+        <section className="active" style={{ display: 'block', paddingBottom: '100px' }}>
+          <h2>Your Goals</h2>
 
           {loading && (
             <div className="empty-state">
@@ -823,7 +1010,15 @@ export default function DashboardPage() {
                 <div
                   key={goal.id}
                   className="bill-item"
-                  onClick={() => openDepositModal(goal)}
+                  onClick={() => openGoalActionsModal(goal)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      openGoalActionsModal(goal);
+                    }
+                  }}
                   style={{ cursor: 'pointer' }}
                 >
                   <div className="bill-left">
@@ -850,28 +1045,9 @@ export default function DashboardPage() {
                     </div>
                     <div className="bill-amount">฿{goal.current_amount.toLocaleString('th-TH', { minimumFractionDigits: 2 })} saved</div>
                   </div>
-                  <div className="bill-status-right" style={{ gap: '8px' }}>
-                    <span className="status-badge" style={{ backgroundColor: getCategoryColor(goal.category) }}>Click to add</span>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteSaving(goal.id);
-                      }}
-                      disabled={deletingSavingId === goal.id}
-                      style={{
-                        border: '1px solid #fecaca',
-                        backgroundColor: deletingSavingId === goal.id ? '#fee2e2' : '#fff5f5',
-                        color: '#dc2626',
-                        borderRadius: '6px',
-                        padding: '6px 8px',
-                        fontSize: '11px',
-                        fontWeight: '600',
-                        cursor: deletingSavingId === goal.id ? 'wait' : 'pointer'
-                      }}
-                    >
-                      {deletingSavingId === goal.id ? 'Deleting...' : 'Delete'}
-                    </button>
+                  <div className="bill-status-right" style={{ gap: '6px' }}>
+                    <span className="status-badge" style={{ backgroundColor: getCategoryColor(goal.category) }}>Open</span>
+                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', letterSpacing: '0.04em' }}>Actions</div>
                   </div>
                 </div>
               );
@@ -882,8 +1058,19 @@ export default function DashboardPage() {
 
       {/* Bills Tab */}
       {currentTab === 'bills' && (
-        <section className="active" style={{ display: 'block' }}>
+        <section className="active" style={{ display: 'block', paddingBottom: '100px' }}>
           <h2>Billing List</h2>
+
+          <div className="summary-grid" style={{ marginBottom: '16px' }}>
+            <div className="sum-card">
+              <div className="sum-label">Bills</div>
+              <div className="sum-value">{activeBillCount}</div>
+            </div>
+            <div className="sum-card">
+              <div className="sum-label">To Pay</div>
+              <div className="sum-value">{activeBillTotal.toLocaleString('th-TH', { minimumFractionDigits: 2 })} ฿</div>
+            </div>
+          </div>
 
           <div style={{ marginBottom: '16px' }}>
             <input
@@ -937,161 +1124,177 @@ export default function DashboardPage() {
             </button>
           </div>
 
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '16px' }}>
+            {(billsSubTab === 'recurring'
+              ? [
+                  { value: 'all', label: 'All recurring' },
+                  { value: 'utility', label: 'Utility' },
+                  { value: 'subscription', label: 'Subscription' }
+                ]
+              : [
+                  { value: 'all', label: 'All debt' },
+                  { value: 'loan', label: 'Loan' },
+                  { value: 'installment', label: 'Installment' },
+                  { value: 'credit_card', label: 'Credit Card' }
+                ]
+            ).map((option) => {
+              const isActive = billsSubTab === 'recurring'
+                ? recurringSubTypeFilter === option.value
+                : debtSubTypeFilter === option.value;
+
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => {
+                    if (billsSubTab === 'recurring') {
+                      setRecurringSubTypeFilter(option.value as 'all' | 'utility' | 'subscription');
+                    } else {
+                      setDebtSubTypeFilter(option.value as 'all' | 'loan' | 'installment' | 'credit_card');
+                    }
+                  }}
+                  style={{
+                    padding: '8px 12px',
+                    borderRadius: '999px',
+                    border: isActive ? '1px solid #3b82f6' : '1px solid #e5e7eb',
+                    backgroundColor: isActive ? '#dbeafe' : 'white',
+                    color: isActive ? '#1d4ed8' : '#6b7280',
+                    fontSize: '12px',
+                    fontWeight: '600',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {option.label}
+                </button>
+              );
+            })}
+          </div>
+
           {billsSubTab === 'recurring' && (
-            <div className="bill-grid">
-              {(() => {
-                const recurringBills = sortBillsByStatus(
-                  bills.filter((b) => b.billing_type === 'recurring' && b.name.toLowerCase().includes(searchBill.toLowerCase()))
-                );
-
-                if (recurringBills.length === 0) {
-                  return (
-                    <div className="empty-state" style={{ gridColumn: '1 / -1' }}>
-                      <div className="empty-icon">⚡</div>
-                      <div className="empty-text">{searchBill ? 'No matching bills found' : 'No recurring bills'}</div>
-                    </div>
-                  );
-                }
-
-                return recurringBills.map((bill) => {
+            <div style={{ marginBottom: '26px' }}>
+              {recurringBills.length === 0 ? (
+                <div className="empty-state">
+                  <div className="empty-icon">⚡</div>
+                  <div className="empty-text">{searchBill ? 'No matching bills found' : 'No recurring bills'}</div>
+                </div>
+              ) : (
+                recurringBills.map((bill) => {
                   const daysUntil = getDaysUntilDue(bill);
                   const billIsOverdue = isOverdue(bill);
-                  const billIsPaid = isBillPaid(bill);
+                  const creditorName = getCreditorName(bill.creditor_id);
 
                   return (
-                    <div key={bill.id} className={`bill-card ${billIsOverdue ? 'overdue' : ''}`} onClick={() => openPaymentModal(bill)}>
-                      <div className="bill-card-header">
-                        <div className={`bill-card-title ${billIsOverdue ? 'overdue' : ''}`}>
-                          <span>⚡</span>
-                          <span>{bill.name}</span>
+                    <div
+                      key={bill.id}
+                      className="bill-item"
+                      onClick={() => openBillDetailModal(bill)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          openBillDetailModal(bill);
+                        }
+                      }}
+                      style={{
+                        cursor: 'pointer',
+                        borderLeftColor: billIsOverdue ? '#991b1b' : undefined,
+                        background: billIsOverdue ? '#7f1d1d' : undefined,
+                        padding: '10px 12px'
+                      }}
+                    >
+                      <div className="bill-left">
+                        <div className="bill-name" style={{ color: billIsOverdue ? 'white' : undefined }}>⚡ {bill.name}</div>
+                        <div className="bill-meta" style={{ color: billIsOverdue ? '#fca5a5' : undefined }}>{bill.sub_type} • Due {bill.due_day}th</div>
+                        {bill.description && (
+                          <div className="bill-meta" style={{ color: billIsOverdue ? '#fca5a5' : '#475569', fontWeight: 400, marginTop: '2px' }}>{bill.description}</div>
+                        )}
+                        <div className="bill-amount" style={{ color: billIsOverdue ? '#fca5a5' : undefined }}>{bill.amount} ฿/month</div>
+                        <div className="bill-meta" style={{ color: billIsOverdue ? '#fca5a5' : undefined, marginBottom: 0 }}>
+                          {creditorName && <span>Creditor: {creditorName}</span>}
+                          {creditorName && bill.last_paid_at && <span>•</span>}
+                          {bill.last_paid_at && <span>Last paid: {new Date(bill.last_paid_at).toLocaleDateString('th-TH')}</span>}
                         </div>
-                        <span className="bill-card-status" style={{ backgroundColor: billIsOverdue ? '#dc2626' : (billIsPaid ? '#10b981' : '#f59e0b') }}>
-                          {billIsOverdue ? 'OVERDUE' : (billIsPaid ? 'PAID' : `${daysUntil}d left`)}
+                      </div>
+                      <div className="bill-status-right" style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'center' }}>
+                        <span className="status-badge" style={{
+                          backgroundColor: billIsOverdue ? '#dc2626' : (isBillPaid(bill) ? '#10b981' : '#f59e0b'),
+                          color: 'white',
+                          fontSize: '9px',
+                          whiteSpace: 'nowrap'
+                        }}>
+                          {billIsOverdue ? 'OVERDUE' : (isBillPaid(bill) ? '✓ Paid' : `${daysUntil}d`)}
                         </span>
-                      </div>
-                      <div className="bill-card-body">
-                        <div className={`bill-card-amount ${billIsOverdue ? 'overdue' : ''}`}>{bill.amount?.toLocaleString('th-TH')} ฿</div>
-                        <div className={`bill-card-meta ${billIsOverdue ? 'overdue' : ''}`}>
-                          {bill.sub_type} • Due on the {bill.due_day}th
-                        </div>
-                      </div>
-                      <div className="bill-card-footer">
-                        <button
-                          className="bill-card-button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openEditBillModal(bill);
-                          }}
-                          aria-label="Edit Bill"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
-                          </svg>
-                        </button>
-                        <button
-                          className="bill-card-button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteBill(bill.id);
-                          }}
-                          disabled={deletingBillId === bill.id}
-                          aria-label="Delete Bill"
-                        >
-                          {deletingBillId === bill.id ? '...' : (
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.134-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.067-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-                            </svg>
-                          )}
-                        </button>
+                        <div style={{ fontSize: '11px', fontWeight: 700, color: billIsOverdue ? '#fecaca' : '#64748b', letterSpacing: '0.04em' }}>Open</div>
                       </div>
                     </div>
                   );
-                });
-              })()}
+                })
+              )}
             </div>
           )}
 
           {billsSubTab === 'debts' && (
-            <div className="bill-grid">
-              {(() => {
-                const debtBills = sortBillsByStatus(
-                  bills.filter((b) => b.billing_type === 'debt' && b.name.toLowerCase().includes(searchBill.toLowerCase()))
-                );
-
-                if (debtBills.length === 0) {
-                  return (
-                    <div className="empty-state" style={{ gridColumn: '1 / -1' }}>
-                      <div className="empty-icon">💳</div>
-                      <div className="empty-text">{searchBill ? 'No matching debts found' : 'No debts'}</div>
-                    </div>
-                  );
-                }
-
-                return debtBills.map((bill) => {
+            <div style={{ marginBottom: '26px' }}>
+              {debtBills.length === 0 ? (
+                <div className="empty-state">
+                  <div className="empty-icon">💳</div>
+                  <div className="empty-text">{searchBill ? 'No matching debts found' : 'No debts'}</div>
+                </div>
+              ) : (
+                debtBills.map((bill) => {
                   const daysUntil = getDaysUntilDue(bill);
                   const billIsOverdue = isOverdue(bill);
-                  const billIsPaid = isBillPaid(bill);
-                  const progress = bill.total_amount && bill.remaining_amount ? Math.max(0, 100 - (bill.remaining_amount / bill.total_amount) * 100) : 0;
+                  const creditorName = getCreditorName(bill.creditor_id);
 
                   return (
-                    <div key={bill.id} className={`bill-card ${billIsOverdue ? 'overdue' : ''}`} onClick={() => openPaymentModal(bill)}>
-                      <div className="bill-card-header">
-                        <div className={`bill-card-title ${billIsOverdue ? 'overdue' : ''}`}>
-                          <span>💳</span>
-                          <span>{bill.name}</span>
+                    <div
+                      key={bill.id}
+                      className="bill-item"
+                      onClick={() => openBillDetailModal(bill)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          openBillDetailModal(bill);
+                        }
+                      }}
+                      style={{
+                        cursor: 'pointer',
+                        borderLeftColor: billIsOverdue ? '#991b1b' : undefined,
+                        background: billIsOverdue ? '#7f1d1d' : undefined,
+                        padding: '10px 12px'
+                      }}
+                    >
+                      <div className="bill-left">
+                        <div className="bill-name" style={{ color: billIsOverdue ? 'white' : undefined }}>💳 {bill.name}</div>
+                        <div className="bill-meta" style={{ color: billIsOverdue ? '#fca5a5' : undefined }}>{bill.sub_type} • Due {bill.due_day}th</div>
+                        {bill.description && (
+                          <div className="bill-meta" style={{ color: billIsOverdue ? '#fca5a5' : '#475569', fontWeight: 400, marginTop: '2px' }}>{bill.description}</div>
+                        )}
+                        <div className="bill-amount-large" style={{ color: billIsOverdue ? '#fca5a5' : undefined }}>{bill.total_amount || bill.amount || 0} ฿</div>
+                        <div className="bill-meta" style={{ color: billIsOverdue ? '#fca5a5' : undefined, marginBottom: 0 }}>
+                          {creditorName && <span>Creditor: {creditorName}</span>}
+                          {creditorName && bill.last_paid_at && <span>•</span>}
+                          {bill.last_paid_at && <span>Last paid: {new Date(bill.last_paid_at).toLocaleDateString('th-TH')}</span>}
                         </div>
-                        <span className="bill-card-status" style={{ backgroundColor: billIsOverdue ? '#dc2626' : (billIsPaid ? '#10b981' : '#f59e0b') }}>
-                          {billIsOverdue ? 'OVERDUE' : (billIsPaid ? 'PAID' : `${daysUntil}d left`)}
+                      </div>
+                      <div className="bill-status-right" style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'center' }}>
+                        <span className="status-badge" style={{
+                          backgroundColor: billIsOverdue ? '#dc2626' : (isBillPaid(bill) ? '#10b981' : '#f59e0b'),
+                          color: 'white',
+                          fontSize: '9px',
+                          whiteSpace: 'nowrap'
+                        }}>
+                          {billIsOverdue ? 'OVERDUE' : (isBillPaid(bill) ? '✓ Paid' : `${daysUntil}d`)}
                         </span>
-                      </div>
-                      <div className="bill-card-body">
-                        <div className={`bill-card-amount ${billIsOverdue ? 'overdue' : ''}`}>
-                          {bill.remaining_amount?.toLocaleString('th-TH')} ฿
-                        </div>
-                        <div className={`bill-card-meta ${billIsOverdue ? 'overdue' : ''}`} style={{ marginBottom: '8px' }}>
-                          Remaining of {bill.total_amount?.toLocaleString('th-TH')} ฿
-                        </div>
-                        <div style={{ backgroundColor: '#e5e7eb', borderRadius: '4px', height: '6px', overflow: 'hidden' }}>
-                          <div style={{ backgroundColor: '#3b82f6', height: '100%', width: `${progress}%` }} />
-                        </div>
-                        <div className="bill-card-meta" style={{ marginTop: '8px', display: 'flex', justifyContent: 'space-between', gap: '12px', fontSize: '11px' }}>
-                          <span>งวดทั้งหมด: {bill.total_installments ?? 'ไม่ระบุ'}</span>
-                          <span>จ่ายแล้ว: {bill.paid_installments ?? 0}</span>
-                        </div>
-                      </div>
-                      <div className="bill-card-footer">
-                        <button
-                          className="bill-card-button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openEditBillModal(bill);
-                          }}
-                          aria-label="Edit Bill"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
-                          </svg>
-                        </button>
-                        <button
-                          className="bill-card-button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteBill(bill.id);
-                          }}
-                          disabled={deletingBillId === bill.id}
-                          aria-label="Delete Bill"
-                        >
-                          {deletingBillId === bill.id ? '...' : (
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.134-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.067-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-                            </svg>
-                          )}
-                        </button>
+                        <div style={{ fontSize: '11px', fontWeight: 700, color: billIsOverdue ? '#fecaca' : '#64748b', letterSpacing: '0.04em' }}>Open</div>
                       </div>
                     </div>
                   );
-                });
-              })()}
+                })
+              )}
             </div>
           )}
         </section>
@@ -1206,13 +1409,10 @@ export default function DashboardPage() {
         <div className="modal active">
           <div className="modal-content">
             <div className="modal-header">
-              <span>Add Saving Goal</span>
+              <span>{editingGoalId ? 'Edit Saving Goal' : 'Add Saving Goal'}</span>
               <button
                 className="modal-close"
-                onClick={() => {
-                  setShowAddGoalModal(false);
-                  setGoalError('');
-                }}
+                onClick={handleCloseGoalModal}
               >
                 ✕
               </button>
@@ -1286,7 +1486,7 @@ export default function DashboardPage() {
                 </div>
               )}
               <button type="submit" className="btn btn-primary" disabled={loading}>
-                {loading ? 'Adding...' : 'Add Goal'}
+                {loading ? (editingGoalId ? 'Saving...' : 'Adding...') : (editingGoalId ? 'Save Changes' : 'Add Goal')}
               </button>
             </form>
           </div>
@@ -1367,6 +1567,16 @@ export default function DashboardPage() {
               </div>
 
               <div className="form-group">
+                <label>Desc</label>
+                <textarea
+                  placeholder="Short note for this bill"
+                  value={billForm.description}
+                  onChange={(e) => handleBillFormChange('description', e.target.value)}
+                  style={{ minHeight: '70px', fontFamily: 'inherit' }}
+                />
+              </div>
+
+              <div className="form-group">
                 <label>Due Day (1-31) *</label>
                 <input
                   type="number"
@@ -1393,6 +1603,38 @@ export default function DashboardPage() {
                   />
                 </div>
               )}
+
+              <div className="form-group">
+                <label>Creditor / Provider</label>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
+                  <select
+                    value={billForm.creditor_id}
+                    onChange={(e) => handleBillFormChange('creditor_id', e.target.value)}
+                    style={{ flex: 1 }}
+                  >
+                    <option value="">Select a creditor...</option>
+                    {creditors.map((creditor) => (
+                      <option key={creditor.id} value={creditor.id}>
+                        {creditor.name}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddCreditorModal(true)}
+                    style={{
+                      padding: '8px 12px',
+                      background: '#e2e8f0',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '14px'
+                    }}
+                  >
+                    + Add
+                  </button>
+                </div>
+              </div>
 
               {billForm.billing_type === 'debt' && (
                 <>
@@ -1434,38 +1676,6 @@ export default function DashboardPage() {
                           value={billForm.installment_amount}
                           onChange={(e) => handleBillFormChange('installment_amount', e.target.value)}
                         />
-                      </div>
-
-                      <div className="form-group">
-                        <label>Creditor / Lender</label>
-                        <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
-                          <select
-                            value={billForm.creditor_id}
-                            onChange={(e) => handleBillFormChange('creditor_id', e.target.value)}
-                            style={{ flex: 1 }}
-                          >
-                            <option value="">Select a creditor...</option>
-                            {creditors.map((creditor) => (
-                              <option key={creditor.id} value={creditor.id}>
-                                {creditor.name}
-                              </option>
-                            ))}
-                          </select>
-                          <button
-                            type="button"
-                            onClick={() => setShowAddCreditorModal(true)}
-                            style={{
-                              padding: '8px 12px',
-                              background: '#e2e8f0',
-                              border: 'none',
-                              borderRadius: '4px',
-                              cursor: 'pointer',
-                              fontSize: '14px'
-                            }}
-                          >
-                            + Add
-                          </button>
-                        </div>
                       </div>
                     </>
                   )}
@@ -1583,6 +1793,304 @@ export default function DashboardPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Bill Detail Modal */}
+      {showBillDetailModal && selectedBillForDetail && (
+        <div className="modal active">
+          <div className="modal-content" style={{ maxWidth: '640px' }}>
+            <div className="modal-header">
+              <span>Bill Actions</span>
+              <button
+                className="modal-close"
+                onClick={closeBillDetailModal}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ marginBottom: '16px', padding: '14px', borderRadius: '14px', background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px', alignItems: 'flex-start', marginBottom: '10px' }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: '18px', fontWeight: '700', marginBottom: '4px' }}>
+                    {selectedBillForDetail.name}
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#64748b' }}>
+                    {selectedBillForDetail.billing_type} • {selectedBillForDetail.sub_type} • Due on the {selectedBillForDetail.due_day}th
+                  </div>
+                </div>
+                <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                  <div style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Open amount</div>
+                  <div style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a' }}>
+                    {selectedBillForDetail.billing_type === 'recurring'
+                      ? `${(selectedBillForDetail.amount || 0).toLocaleString('th-TH')} ฿ / month`
+                      : `${(selectedBillForDetail.remaining_amount || 0).toLocaleString('th-TH')} ฿ remaining`}
+                  </div>
+                </div>
+              </div>
+
+              {selectedBillForDetail.description && (
+                <div style={{ fontSize: '13px', color: '#475569', marginBottom: '10px' }}>
+                  {selectedBillForDetail.description}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
+                {getCreditorName(selectedBillForDetail.creditor_id) && (
+                  <span className="status-badge" style={{ backgroundColor: '#e2e8f0', color: '#334155' }}>
+                    Creditor: {getCreditorName(selectedBillForDetail.creditor_id)}
+                  </span>
+                )}
+                <span className="status-badge" style={{ backgroundColor: '#3b82f6', color: 'white' }}>
+                  {selectedBillPayments.length} payments
+                </span>
+                {selectedBillForDetail.last_paid_at && (
+                  <span className="status-badge" style={{ backgroundColor: '#0f172a', color: 'white' }}>
+                    Last paid: {new Date(selectedBillForDetail.last_paid_at).toLocaleDateString('th-TH')}
+                  </span>
+                )}
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '10px' }}>
+                <button
+                  type="button"
+                  style={billActionButtonStyle}
+                  onClick={() => {
+                    if (selectedBillForDetail) {
+                      closeBillDetailModal();
+                      openPaymentModal(selectedBillForDetail);
+                    }
+                  }}
+                >
+                  Record Payment
+                </button>
+                <button
+                  type="button"
+                  style={billActionButtonStyle}
+                  onClick={() => {
+                    if (selectedBillForDetail) {
+                      const billToEdit = selectedBillForDetail;
+                      closeBillDetailModal();
+                      openEditBillModal(billToEdit);
+                    }
+                  }}
+                >
+                  Edit Bill
+                </button>
+                <button
+                  type="button"
+                  style={billDangerButtonStyle}
+                  onClick={() => {
+                    const billId = selectedBillForDetail.id;
+                    closeBillDetailModal();
+                    handleDeleteBill(billId);
+                  }}
+                  disabled={deletingBillId === selectedBillForDetail.id}
+                >
+                  {deletingBillId === selectedBillForDetail.id ? 'Deleting...' : 'Delete Bill'}
+                </button>
+              </div>
+            </div>
+
+            {billDetailLoading && (
+              <div className="empty-state">
+                <div className="empty-icon">⏳</div>
+                <div className="empty-text">Loading payment history...</div>
+              </div>
+            )}
+
+            {!billDetailLoading && billDetailError && (
+              <div style={{
+                background: '#fff5f5',
+                border: '1px solid #feb2b2',
+                borderRadius: '6px',
+                padding: '10px',
+                fontSize: '12px',
+                color: '#742a2a',
+                marginBottom: '12px'
+              }}>
+                {billDetailError}
+              </div>
+            )}
+
+            {!billDetailLoading && !billDetailError && (
+              <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '16px' }}>
+                <h3 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: '600' }}>Payment History</h3>
+                {selectedBillPayments.length === 0 ? (
+                  <div className="empty-state">
+                    <div className="empty-icon">🧾</div>
+                    <div className="empty-text">No payment history yet</div>
+                  </div>
+                ) : (
+                  <div style={{ maxHeight: '220px', overflowY: 'auto' }}>
+                    {selectedBillPayments.map((payment) => (
+                      <div key={payment.id} style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        gap: '12px',
+                        padding: '10px 0',
+                        borderBottom: '1px solid #f3f4f6'
+                      }}>
+                        <div>
+                          <div style={{ fontWeight: '600', fontSize: '13px' }}>
+                            ฿{Number(payment.amount).toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+                          </div>
+                          <div style={{ color: '#6b7280', fontSize: '11px' }}>
+                            Paid {new Date(payment.paid_at).toLocaleDateString('th-TH')}
+                          </div>
+                          {payment.cycle_due_date && (
+                            <div style={{ color: '#6b7280', fontSize: '11px' }}>
+                              Cycle due: {new Date(payment.cycle_due_date).toLocaleDateString('th-TH')}
+                            </div>
+                          )}
+                        </div>
+                        <div style={{ color: '#10b981', fontWeight: '700', fontSize: '12px' }}>
+                          PAID
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: '10px', marginTop: '18px' }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={closeBillDetailModal}
+                style={{ flex: 1 }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Goal Actions Modal */}
+      {showGoalActionsModal && selectedGoalForActions && (
+        <div className="modal active">
+          <div className="modal-content">
+            <div className="modal-header">
+              <span>💰 {selectedGoalForActions.goal_name}</span>
+              <button
+                className="modal-close"
+                onClick={() => {
+                  setShowGoalActionsModal(false);
+                  setSelectedGoalForActions(null);
+                  setGoalDeposits([]);
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '13px' }}>
+                <span style={{ fontWeight: '500' }}>
+                  ฿{selectedGoalForActions.current_amount.toLocaleString('th-TH', { minimumFractionDigits: 2 })} / ฿{selectedGoalForActions.target_amount.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+                </span>
+                <span style={{ color: '#6b7280' }}>
+                  {Math.round(getProgressPercentage(selectedGoalForActions.current_amount, selectedGoalForActions.target_amount))}%
+                </span>
+              </div>
+              <div style={{ backgroundColor: '#e5e7eb', borderRadius: '4px', height: '8px', overflow: 'hidden' }}>
+                <div style={{ backgroundColor: getCategoryColor(selectedGoalForActions.category), height: '100%', width: `${getProgressPercentage(selectedGoalForActions.current_amount, selectedGoalForActions.target_amount)}%` }} />
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '8px', marginBottom: '16px' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  openDepositModal(selectedGoalForActions);
+                  setShowGoalActionsModal(false);
+                  setSelectedGoalForActions(null);
+                }}
+                style={{
+                  ...goalActionButtonStyle,
+                  backgroundColor: '#ecfeff',
+                  borderColor: 'rgba(6, 182, 212, 0.24)',
+                  color: '#155e75'
+                }}
+              >
+                Add Deposit
+              </button>
+              <button
+                type="button"
+                onClick={() => handleEditGoal(selectedGoalForActions)}
+                style={goalActionButtonStyle}
+              >
+                Edit Goal
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDeleteSaving(selectedGoalForActions.id)}
+                disabled={deletingSavingId === selectedGoalForActions.id}
+                style={goalDangerButtonStyle}
+              >
+                {deletingSavingId === selectedGoalForActions.id ? 'Deleting...' : 'Delete Goal'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowGoalActionsModal(false);
+                  setSelectedGoalForActions(null);
+                }}
+                style={goalActionButtonStyle}
+              >
+                Close
+              </button>
+            </div>
+
+            {selectedGoalForActions.description && (
+              <div style={{ marginBottom: '16px', fontSize: '12px', color: '#6b7280', lineHeight: '1.5' }}>
+                {selectedGoalForActions.description}
+              </div>
+            )}
+
+            <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '16px' }}>
+              <h3 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: '600' }}>Saving History</h3>
+              {goalDeposits.length === 0 ? (
+                <div className="empty-state">
+                  <div className="empty-icon">🧾</div>
+                  <div className="empty-text">No deposits yet</div>
+                </div>
+              ) : (
+                <div style={{ maxHeight: '220px', overflowY: 'auto' }}>
+                  {goalDeposits.map((deposit) => (
+                    <div key={deposit.id} style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      gap: '12px',
+                      padding: '10px 0',
+                      borderBottom: '1px solid #f3f4f6'
+                    }}>
+                      <div>
+                        {deposit.note && (
+                          <div style={{ fontWeight: '600', fontSize: '13px' }}>{deposit.note}</div>
+                        )}
+                        <div style={{ color: '#6b7280', fontSize: '11px' }}>
+                          {new Date(deposit.deposited_at).toLocaleDateString('th-TH', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric'
+                          })}
+                        </div>
+                      </div>
+                      <div style={{ color: '#10b981', fontWeight: '700', fontSize: '12px' }}>
+                        +฿{Number(deposit.amount).toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
